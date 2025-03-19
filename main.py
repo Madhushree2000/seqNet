@@ -13,6 +13,7 @@ import numpy as np
 import sys
 
 from get_datasets import get_dataset, get_splits, prefix_data
+#from get_dataset_underwater import get_dataset, get_splits, prefix_data
 from get_models import get_model
 from train import train
 from test import test
@@ -33,6 +34,7 @@ parser.add_argument('--lrStep', type=float, default=50, help='Decay LR ever N st
 parser.add_argument('--lrGamma', type=float, default=0.5, help='Multiply LR by Gamma for decaying.')
 parser.add_argument('--weightDecay', type=float, default=0.001, help='Weight decay for SGD.')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum for SGD.')
+parser.add_argument('--mps', action='store_true', help='Use mps instead of cuda')
 parser.add_argument('--nocuda', action='store_true', help='Dont use cuda')
 parser.add_argument('--threads', type=int, default=8, help='Number of threads for each data loader to use')
 parser.add_argument('--seed', type=int, default=123, help='Random seed to use.')
@@ -56,7 +58,7 @@ parser.add_argument('--predictionsFile', type=str, default=None, help='path to p
 parser.add_argument('--seqL_filterData', type=int, help='during testing, db and qry inds will be removed that violate sequence boundaries for this given sequence length')
 
 # dataset, model etc.
-parser.add_argument('--dataset', type=str, default='nordland-sw', help='Dataset to use', choices=['nordland-sw', 'nordland-sf', 'oxford-v1.0', 'oxford-pnv', 'msls'])
+parser.add_argument('--dataset', type=str, default='nordland-sw', help='Dataset to use', choices=['nordland-sw', 'nordland-sf', 'oxford-v1.0', 'oxford-pnv', 'msls', 'underwater'])
 parser.add_argument('--msls_trainCity', type=str, default='melbourne', help='trainCityName')
 parser.add_argument('--msls_valCity', type=str, default='austin', help='valCityName')
 parser.add_argument('--pooling', type=str, default='seqnet', help='type of pooling to use', choices=[ 'seqnet', 'smooth', 'delta', 'single','single+seqmatch', 's1+seqmatch'])
@@ -106,10 +108,18 @@ if __name__ == "__main__":
     print(opt)
 
     cuda = not opt.nocuda
-    if cuda and not torch.cuda.is_available():
-        raise Exception("No GPU found, please run with --nocuda")
+    mps = opt.mps
 
-    device = torch.device("cuda" if cuda else "cpu")
+    if cuda and torch.cuda.is_available():
+        device = torch.device("cuda")
+
+    elif mps and torch.backends.mps.is_available():
+        device = torch.device("mps")
+    
+    else:
+        device = torch.device("cpu")
+        print("running on CPU")
+
 
     random.seed(opt.seed)
     np.random.seed(opt.seed)

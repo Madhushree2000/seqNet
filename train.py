@@ -43,8 +43,15 @@ def train(opt, model, encoder_dim, device, dataset, criterion, optimizer, train_
                     batch_size=opt.batchSize, shuffle=True, 
                     collate_fn=dataset.collate_fn, pin_memory=not opt.nocuda)
 
-        print('Allocated:', torch.cuda.memory_allocated())
-        print('Cached:', torch.cuda.memory_reserved())
+        # With this device-agnostic approach:
+        if device.type == 'cuda':
+            print('Allocated:', torch.cuda.memory_allocated())
+            print('Cached:', torch.cuda.memory_reserved())
+        elif device.type == 'mps':
+            # MPS doesn't have the same memory reporting functions
+            print('Using MPS device')
+        else:
+            print('Using CPU device')
 
         model.train()
         for iteration, (query, positives, negatives, 
@@ -88,13 +95,19 @@ def train(opt, model, encoder_dim, device, dataset, criterion, optimizer, train_
                         ((epoch-1) * nBatches) + iteration)
                 writer.add_scalar('Train/nNeg', nNeg, 
                         ((epoch-1) * nBatches) + iteration)
-                print('Allocated:', torch.cuda.memory_allocated())
-                print('Cached:', torch.cuda.memory_cached())
+                if device.type == 'cuda':
+                    print('Allocated:', torch.cuda.memory_allocated())
+                    print('Cached:', torch.cuda.memory_cached())
+                elif device.type == 'mps':
+                    print('Using MPS device')
+                else:
+                    print('Using CPU device')
 
         startIter += len(training_data_loader)
         del training_data_loader, loss
         optimizer.zero_grad()
-        torch.cuda.empty_cache()
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
         remove(train_set.cache) # delete HDF5 cache
 
     avg_loss = epoch_loss / nBatches
